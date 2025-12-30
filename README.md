@@ -27,11 +27,10 @@ npm install
 ## How to run in dev
 
 * preparation
-* make sure you have already installed [`nodejs 22`](https://nodejs.org/en/)
-
-* make sure you have already installed [`redis`](https://redis.io/) and [`mysql8.0+`](https://www.mysql.com/)
-
-* config your system environment variable for [`tencent cos`](https://console.cloud.tencent.com/cos).
+> [!IMPORTANT]
+> make sure you have already installed [`nodejs 22`](https://nodejs.org/en/)
+> make sure you have already installed [`redis`](https://redis.io/) and [`mysql8.0+`](https://www.mysql.com/)
+> config your system environment variable for [`tencent cos`](https://console.cloud.tencent.com/cos).
 
 * backend:
 
@@ -51,7 +50,9 @@ npm run dev
 ```
 
 ## Hot to use
+>[!NOTE]
+> 1. register your account.
+> 2. login with your account.
+> 3. click whatever you want to do.
 
-1. register your account.
-2. login with your account.
-3. click whatever you want to do.
+*some resource are form web, If there is any infringement, please contact me to delete.*
