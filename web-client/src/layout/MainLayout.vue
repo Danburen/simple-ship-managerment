@@ -151,7 +151,14 @@ const toggleSidebar = () => {
 
 // 退出登录
 const handleLogout = async () => {
-  useAuthStore().logout();
+  useAuthStore().logout()
+  .then(() => {
+    ElMessage.success('退出登录成功');
+    router.push('/login');
+  })
+  .catch((err) => {
+    ElMessage.error('退出登录失败: ' + err.message);
+  });
 };
 
 

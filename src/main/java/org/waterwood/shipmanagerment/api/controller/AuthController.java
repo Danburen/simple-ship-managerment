@@ -10,9 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.waterwood.shipmanagerment.api.ApiResponse;
-import org.waterwood.shipmanagerment.api.dto.request.PwdLoginReq;
-import org.waterwood.shipmanagerment.api.dto.request.RegisterReq;
+import org.waterwood.shipmanagerment.api.dto.request.RegisterV2Req;
 import org.waterwood.shipmanagerment.api.dto.response.LoginRes;
+import org.waterwood.shipmanagerment.api.dto.response.PwdLoginV2Req;
+import org.waterwood.shipmanagerment.infrastructure.utils.RequestProcessor;
 import org.waterwood.shipmanagerment.infrastructure.utils.UserContext;
 import org.waterwood.shipmanagerment.service.AuthService;
 import org.waterwood.shipmanagerment.service.CaptchaService;
@@ -53,20 +54,19 @@ public class AuthController {
 
     @Operation(summary = "注册")
     @PostMapping("/register")
-    public ApiResponse<Void> register(@Valid @RequestBody RegisterReq dto, HttpServletRequest req){
+    public ApiResponse<Void> register(@Valid @RequestBody RegisterV2Req dto, HttpServletRequest req){
         String key =  CookieUtils.getCookie(req, COOKIE_CAPTCHA_KEY);
-        log.info("key: {}", key);
-        authService.register(dto, key);
+        authService.tryRegister(dto, RequestProcessor.getRemoteIp(req));
         return ApiResponse.success();
     }
 
     @Operation(summary = "登录")
     @PostMapping("/login")
-    public ApiResponse<LoginRes> login(@Valid @RequestBody PwdLoginReq dto, HttpServletRequest req){
-        String key =  CookieUtils.getCookie(req, COOKIE_CAPTCHA_KEY);
-        return ApiResponse.success(authService.loginByPwd(dto, key));
+    public ApiResponse<LoginRes> login(@Valid @RequestBody PwdLoginV2Req dto, HttpServletRequest req){
+        return ApiResponse.success(authService.tryLoginByPwd(dto, RequestProcessor.getRemoteIp(req)));
     }
-
+    @Operation(summary = "登出")
+    @PostMapping("/logout")
     public ApiResponse<Void> logout(@Parameter(hidden = true) @AuthenticationPrincipal UserContext ctx){
         authService.logout(ctx.getUserId());
         return ApiResponse.success();

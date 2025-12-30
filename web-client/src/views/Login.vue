@@ -37,11 +37,14 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button
-              type="primary"
-              :loading="isLoading"
-              @click="showCaptchaDialog"
-              size="large"
+            <div ref="turnstileContainerRef"></div>
+          </el-form-item>
+          <el-form-item>
+            <el-button 
+              type="primary" 
+              size="large" 
+              :loading="isLoading" 
+              @click="handleLoginClick"
               class="login-button"
             >
               登录
@@ -53,22 +56,15 @@
         </el-form>
       </el-card>
     </div>
-    
-    <!-- 验证码对话框 -->
-    <CaptchaDialog 
-      v-model="showCaptcha" 
-      @confirm="handleLogin"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { reactive, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElForm, ElFormItem, ElMessage, ElInput, ElButton, FormRules } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
-import { login } from '../api/auth';
-import CaptchaDialog from '@/components/CaptchaDialog.vue';
+import { login, loginWithTurnstile } from '../api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 
@@ -78,6 +74,42 @@ const router = useRouter();
 const loginFormRef = ref<InstanceType<typeof ElForm> | null>(null);
 const isLoading = ref(false);
 const authStore = useAuthStore();
+const turnstileContainerRef = ref<HTMLElement>()
+
+
+const tryInitTurnstile = () => {
+  if (!(window as any).turnstile) {
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    script.onload = () => {
+      initializeTurnstile();
+    };
+  } else {
+    initializeTurnstile();
+  }
+}
+
+const initializeTurnstile = () => {
+  if (turnstileContainerRef.value && (window as any).turnstile) {
+    if (turnstileContainerRef.value.children.length === 0) {
+      (window as any).turnstile.render(turnstileContainerRef.value, {
+        sitekey: '0x4AAAAAACJv7L1reoh5p0NV',
+        callback: (token: string) => {
+          console.log('Turnstile验证成功:', token);
+        },
+        'error-callback': () => {
+          console.error('Turnstile验证失败');
+        },
+        'expired-callback': () => {
+          console.warn('Turnstile验证已过期');
+        }
+      });
+    }
+  }
+}
 
 // 登录表单数据
 const loginForm = reactive({
@@ -98,48 +130,52 @@ const loginRules = reactive<FormRules>({
   ]
 });
 
-// 验证码对话框相关
-const showCaptcha = ref(false);
-
-// 显示验证码对话框
-const showCaptchaDialog = () => {
-  showCaptcha.value = true;
-};
-
-// 验证码确认回调
-const handleLogin = (captcha: string, callback: (success: boolean) => void) => {
-  loginForm.verifyCode = captcha;
-  if (!loginFormRef.value) return callback(false);
+const handleLoginClick = () => {
+  const turnstileToken = (window as any).turnstile?.getResponse();
+  if (!turnstileToken) {
+    ElMessage.error('请完成人机验证');
+  }
+  
+  if (!loginFormRef.value) return;
   loginFormRef.value.validate().then(()=>{
     isLoading.value = true;
-    return authStore.tryLogin(loginForm).then(() => {
+    loginWithTurnstile({
+      username: loginForm.username,
+      password: loginForm.password,
+      cfTurnstileToken: turnstileToken
+    }).then((res) => {
+
+      authStore.$patch({
+        authData: {
+          token: res.data.token,
+          expireAt: res.data.expireAt
+        }
+      });
+      
       const redirect = router.currentRoute.value.query.redirect as string;
       useUserStore().fetchUserProfile();
-      showCaptcha.value = false;
       ElMessage.success('登录成功');
       console.log(redirect)
       router.push(redirect || '/');
-      return callback(true);
     }).catch((error: any) => {
       console.log(error)
-      loginForm.verifyCode = '';
       ElMessage.error(error.response?.data?.message || '登录失败');
-      if(error.response?.data.code === "verify.captcha_code.incorrect"){
-        showCaptcha.value = true;
-      }else{
-        showCaptcha.value = false;
-      }
-      return callback(false);
     }).finally(() => {
       isLoading.value = false;
+      // (window as any).turnstile?.reset();
     });
-  }).catch(() => callback(false));
+  })
 };
 
 // 跳转到注册页面
 const goToRegister = () => {
   router.push('/register');
 };
+
+onMounted(() => {
+  tryInitTurnstile();
+})
+
 </script>
 
 <style scoped>

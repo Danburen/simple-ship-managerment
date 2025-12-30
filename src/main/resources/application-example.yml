@@ -27,7 +27,11 @@ jwt:
 expire:
   token:
     access: 43200 # 60 * 24 * 30 minutes
+
 cloud:
+  cloudflare:
+    turnstile:
+      secret-key: your-cloudflare-turnstile-secret-key
   tencent:
     cos:
       bucket-name: [tencent.cos.bucket-name]

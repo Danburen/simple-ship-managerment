@@ -54,11 +54,14 @@
               :prefix-icon="User"
             />
           </el-form-item>
+           <el-form-item>
+            <div ref="turnstileContainerRef"></div>
+          </el-form-item>
           <el-form-item>
             <el-button
               type="primary"
               :loading="isLoading"
-              @click="showCaptchaDialog"
+              @click="handleRegister"
               size="large"
               class="login-button"
             >
@@ -71,33 +74,28 @@
         </el-form>
       </el-card>
     </div>
-    
-    <!-- 验证码对话框 -->
-    <CaptchaDialog 
-      v-model="showCaptcha" 
-      @confirm="handleRegister"
-    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElForm, ElFormItem, ElInput, ElButton, FormRules } from 'element-plus';
+import { ElForm, ElFormItem, ElInput, ElButton, FormRules, ElMessage } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { register } from '../api/auth';
-import CaptchaDialog from '@/components/CaptchaDialog.vue';
 
 const router = useRouter();
 const registerFormRef = ref<InstanceType<typeof ElForm> | null>(null);
 const isLoading = ref(false);
+const turnstileContainerRef = ref<HTMLElement>()
 
 const registerForm = reactive({
   username: '',
   password: '',
   confirmPwd: '',
   nickname: '',
-  verifyCode: ''
+  cfTurnstileToken: ''
 });
 // 注册表单规则
 const registerRules = reactive<FormRules>({
@@ -127,40 +125,68 @@ const registerRules = reactive<FormRules>({
   ],
 });
 
-const showCaptcha = ref(false);
-const showCaptchaDialog = () => {
-  showCaptcha.value = true;
-};
+const tryInitTurnstile = () => {
+  if (!(window as any).turnstile) {
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    script.onload = () => {
+      initializeTurnstile();
+    };
+  } else {
+    initializeTurnstile();
+  }
+}
 
-const handleRegister = (captcha: string, callback: (success: boolean) => void) => {
-  registerForm.verifyCode = captcha;
+const initializeTurnstile = () => {
+  if (turnstileContainerRef.value && (window as any).turnstile) {
+    if (turnstileContainerRef.value.children.length === 0) {
+      (window as any).turnstile.render(turnstileContainerRef.value, {
+        sitekey: '0x4AAAAAACJv7L1reoh5p0NV',
+        callback: (token: string) => {
+          console.log('Turnstile验证成功:', token);
+        },
+        'error-callback': () => {
+          console.error('Turnstile验证失败');
+        },
+        'expired-callback': () => {
+          console.warn('Turnstile验证已过期');
+        }
+      });
+    }
+  }
+}
+
+const handleRegister = () => {
   if (!registerFormRef.value) return;
+  const turnstileToken = (window as any).turnstile?.getResponse();
+  if (!turnstileToken) {
+    ElMessage.error('请完成人机验证');
+  }
   
   registerFormRef.value.validate().then(() => {
     isLoading.value = true;
+    registerForm.cfTurnstileToken = turnstileToken;
     
     register(registerForm).then(() => {
       router.push('/login');
-      callback(true);
     }).catch((error: any) => {
       console.error('注册失败:', error);
-      registerForm.verifyCode = '';
-      showCaptcha.value = true;
-       if(error.response?.data.code === "verify.captcha_code.incorrect"){
-        showCaptcha.value = true;
-      }else{
-        showCaptcha.value = false;
-      }
-      callback(false);
+      registerForm.cfTurnstileToken = ''
     }).finally(() => {
       isLoading.value = false;
     });
   }).catch((error: any) => {
     console.error('注册失败:', error);
-    registerForm.verifyCode = '';
-    showCaptcha.value = true;
+    registerForm.cfTurnstileToken = '';
   });
 };
+
+onMounted(() => {
+  tryInitTurnstile();
+})
 </script>
 
 <style scoped>

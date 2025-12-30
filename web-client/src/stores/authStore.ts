@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import {  ref } from 'vue'
-import { login, register } from '../api/auth'
+import { login, register, loginWithTurnstile, logout, type LoginWithTurnstileParams } from '../api/auth'
 import type { LoginParams, LoginResponse, RegisterParams } from '../api/auth'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
@@ -29,6 +29,18 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
+  const tryLoginWithTurnstile = async(reqBody: LoginWithTurnstileParams) => {
+    return loginWithTurnstile(reqBody).then((res) => {
+        authData.value = {
+            token: res.data.token,
+            expireAt: res.data.expireAt
+        };
+        return Promise.resolve(res)
+    }).catch((err) => {
+      return Promise.reject(err)
+    })
+  }
+
   const tryRegister = async(reqBody: RegisterParams) => {
     return register(reqBody).then((res) => {
       return Promise.resolve(res.data)
@@ -37,15 +49,20 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }     
 
-  const logout = () => {
-    authData.value = {
-      token: '',
-      expireAt: 0
-    },
-    useUserStore().clearProfile();
+  const tryLogout = async () => {
+    await logout().then(() => {
+      authData.value = {
+        token: '',
+        expireAt: 0
+      },
+      useUserStore().clearProfile();
+      return Promise.resolve()
+    }).catch((err) => {
+      return Promise.reject(err)
+    });
   }
 
-  return { authData, tryLogin, tryRegister, logout }
+  return { authData, tryLogin, tryRegister, logout: tryLogout }
 }, {
   persist: {
     key: 'auth',
