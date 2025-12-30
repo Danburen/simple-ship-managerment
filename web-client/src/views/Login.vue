@@ -37,7 +37,11 @@
             />
           </el-form-item>
           <el-form-item>
-            <div ref="turnstileContainerRef"></div>
+            <cloudflare-turnstile 
+              ref="turnstileRef" 
+              @verify="handleTurnstileVerify"
+              @error="handleTurnstileError"
+            />
           </el-form-item>
           <el-form-item>
             <el-button 
@@ -60,13 +64,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElForm, ElFormItem, ElMessage, ElInput, ElButton, FormRules } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { login, loginWithTurnstile } from '../api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
+import CloudflareTurnstile from '@/components/CloudflareTurnstile.vue';
 
 
 
@@ -74,51 +79,28 @@ const router = useRouter();
 const loginFormRef = ref<InstanceType<typeof ElForm> | null>(null);
 const isLoading = ref(false);
 const authStore = useAuthStore();
-const turnstileContainerRef = ref<HTMLElement>()
+const turnstileRef = ref<InstanceType<typeof CloudflareTurnstile> | null>(null);
 
+// 存储turnstile token
+const turnstileToken = ref<string>('');
 
-const tryInitTurnstile = () => {
-  if (!(window as any).turnstile) {
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    script.onload = () => {
-      initializeTurnstile();
-    };
-  } else {
-    initializeTurnstile();
-  }
-}
+// Turnstile验证成功处理
+const handleTurnstileVerify = (token: string) => {
+  turnstileToken.value = token;
+  console.log('Turnstile验证成功:', token);
+};
 
-const initializeTurnstile = () => {
-  if (turnstileContainerRef.value && (window as any).turnstile) {
-    if (turnstileContainerRef.value.children.length === 0) {
-      (window as any).turnstile.render(turnstileContainerRef.value, {
-        sitekey: '0x4AAAAAACJv7L1reoh5p0NV',
-        callback: (token: string) => {
-          console.log('Turnstile验证成功:', token);
-        },
-        'error-callback': () => {
-          console.error('Turnstile验证失败');
-        },
-        'expired-callback': () => {
-          console.warn('Turnstile验证已过期');
-        }
-      });
-    }
-  }
-}
+const handleTurnstileError = () => {
+  turnstileToken.value = '';
+  console.error('Turnstile验证失败');
+  ElMessage.error('人机验证失败，请重试');
+};
 
-// 登录表单数据
 const loginForm = reactive({
   username: '',
   password: '',
-  verifyCode: ''
 });
 
-// 登录表单规则
 const loginRules = reactive<FormRules>({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
@@ -131,9 +113,11 @@ const loginRules = reactive<FormRules>({
 });
 
 const handleLoginClick = () => {
-  const turnstileToken = (window as any).turnstile?.getResponse();
-  if (!turnstileToken) {
+  // 获取Turnstile token
+  const token = turnstileToken.value || turnstileRef.value?.getResponse();
+  if (!token) {
     ElMessage.error('请完成人机验证');
+    return;
   }
   
   if (!loginFormRef.value) return;
@@ -142,16 +126,14 @@ const handleLoginClick = () => {
     loginWithTurnstile({
       username: loginForm.username,
       password: loginForm.password,
-      cfTurnstileToken: turnstileToken
+      cfTurnstileToken: token
     }).then((res) => {
-
       authStore.$patch({
         authData: {
           token: res.data.token,
           expireAt: res.data.expireAt
         }
       });
-      
       const redirect = router.currentRoute.value.query.redirect as string;
       useUserStore().fetchUserProfile();
       ElMessage.success('登录成功');
@@ -160,9 +142,9 @@ const handleLoginClick = () => {
     }).catch((error: any) => {
       console.log(error)
       ElMessage.error(error.response?.data?.message || '登录失败');
+      turnstileRef.value?.reset();
     }).finally(() => {
       isLoading.value = false;
-      // (window as any).turnstile?.reset();
     });
   })
 };
@@ -171,10 +153,6 @@ const handleLoginClick = () => {
 const goToRegister = () => {
   router.push('/register');
 };
-
-onMounted(() => {
-  tryInitTurnstile();
-})
 
 </script>
 

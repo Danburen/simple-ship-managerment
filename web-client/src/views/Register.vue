@@ -55,7 +55,11 @@
             />
           </el-form-item>
            <el-form-item>
-            <div ref="turnstileContainerRef"></div>
+            <cloudflare-turnstile 
+              ref="turnstileRef" 
+              @verify="handleTurnstileVerify"
+              @error="handleTurnstileError"
+            />
           </el-form-item>
           <el-form-item>
             <el-button
@@ -79,25 +83,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElForm, ElFormItem, ElInput, ElButton, FormRules, ElMessage } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { register } from '../api/auth';
+import CloudflareTurnstile from '@/components/CloudflareTurnstile.vue';
 
 const router = useRouter();
 const registerFormRef = ref<InstanceType<typeof ElForm> | null>(null);
 const isLoading = ref(false);
-const turnstileContainerRef = ref<HTMLElement>()
+const turnstileRef = ref<InstanceType<typeof CloudflareTurnstile> | null>(null);
+
+const turnstileToken = ref<string>('');
 
 const registerForm = reactive({
   username: '',
   password: '',
   confirmPwd: '',
-  nickname: '',
-  cfTurnstileToken: ''
+  nickname: ''
 });
-// 注册表单规则
 const registerRules = reactive<FormRules>({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
@@ -125,68 +130,45 @@ const registerRules = reactive<FormRules>({
   ],
 });
 
-const tryInitTurnstile = () => {
-  if (!(window as any).turnstile) {
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    script.onload = () => {
-      initializeTurnstile();
-    };
-  } else {
-    initializeTurnstile();
-  }
-}
+const handleTurnstileVerify = (token: string) => {
+  turnstileToken.value = token;
+  console.log('Turnstile验证成功:', token);
+};
 
-const initializeTurnstile = () => {
-  if (turnstileContainerRef.value && (window as any).turnstile) {
-    if (turnstileContainerRef.value.children.length === 0) {
-      (window as any).turnstile.render(turnstileContainerRef.value, {
-        sitekey: '0x4AAAAAACJv7L1reoh5p0NV',
-        callback: (token: string) => {
-          console.log('Turnstile验证成功:', token);
-        },
-        'error-callback': () => {
-          console.error('Turnstile验证失败');
-        },
-        'expired-callback': () => {
-          console.warn('Turnstile验证已过期');
-        }
-      });
-    }
-  }
-}
+const handleTurnstileError = () => {
+  turnstileToken.value = '';
+  console.error('Turnstile验证失败');
+  ElMessage.error('人机验证失败，请重试');
+};
 
 const handleRegister = () => {
   if (!registerFormRef.value) return;
-  const turnstileToken = (window as any).turnstile?.getResponse();
-  if (!turnstileToken) {
+
+  const token = turnstileToken.value || turnstileRef.value?.getResponse();
+  if (!token) {
     ElMessage.error('请完成人机验证');
+    return;
   }
   
   registerFormRef.value.validate().then(() => {
     isLoading.value = true;
-    registerForm.cfTurnstileToken = turnstileToken;
     
-    register(registerForm).then(() => {
+    register({
+      ...registerForm,
+      cfTurnstileToken: token
+    }).then(() => {
       router.push('/login');
     }).catch((error: any) => {
       console.error('注册失败:', error);
-      registerForm.cfTurnstileToken = ''
+      turnstileRef.value?.reset();
     }).finally(() => {
       isLoading.value = false;
     });
   }).catch((error: any) => {
     console.error('注册失败:', error);
-    registerForm.cfTurnstileToken = '';
+    turnstileRef.value?.reset();
   });
 };
-
-onMounted(() => {
-  tryInitTurnstile();
-})
 </script>
 
 <style scoped>

@@ -29,17 +29,6 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  const tryLoginWithTurnstile = async(reqBody: LoginWithTurnstileParams) => {
-    return loginWithTurnstile(reqBody).then((res) => {
-        authData.value = {
-            token: res.data.token,
-            expireAt: res.data.expireAt
-        };
-        return Promise.resolve(res)
-    }).catch((err) => {
-      return Promise.reject(err)
-    })
-  }
 
   const tryRegister = async(reqBody: RegisterParams) => {
     return register(reqBody).then((res) => {

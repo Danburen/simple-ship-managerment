@@ -26,7 +26,7 @@ export interface RegisterParams {
   password: string;
   confirmPwd: string;
   nickname?: string;
-  cfTurnstileToken: string;
+  cfTurnstileToken?: string;
 }
 
 // 登录响应接口

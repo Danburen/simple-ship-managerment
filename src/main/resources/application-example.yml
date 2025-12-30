@@ -31,7 +31,7 @@ expire:
 cloud:
   cloudflare:
     turnstile:
-      secret-key: your-cloudflare-turnstile-secret-key
+      secret-key: your-cloudflare-turnstile-secret-key # don't forget to replace the frontend turnstile-site-key at ./web-client/.env.
   tencent:
     cos:
       bucket-name: [tencent.cos.bucket-name]
