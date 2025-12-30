@@ -1,0 +1,178 @@
+<template>
+  <div class="base-list-container">
+    <el-card>
+      <!-- 操作栏 -->
+      <template #header>
+        <div class="card-header">
+          <div class="header-left">
+            <h3>{{ title }}</h3>
+          </div>
+          <div class="header-right">
+            <slot name="action-buttons">
+              <el-button v-if="showAddButton" type="primary" @click="$emit('add')">
+                {{ addButtonText }}
+              </el-button>
+            </slot>
+          </div>
+        </div>
+      </template>
+      
+      <!-- 中间内容插槽 -->
+      <div class="card-content">
+        <slot></slot>
+      </div>
+      
+      <!-- 分页 -->
+      <div v-if="showPagination" class="pagination-container">
+        <el-pagination
+          v-model:current-page="localCurrentPage"
+          v-model:page-size="localPageSize"
+          :page-sizes="pageSizes"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="getActualTotal()"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue';
+
+interface SimplePagination {
+  total: number;
+  pageSize: number;
+  currentPage: number;
+}
+
+
+// Props
+const props = withDefaults(defineProps<{
+  title: string;
+  showAddButton?: boolean;
+  addButtonText?: string;
+  showPagination?: boolean;
+  total?: number;
+  pageSize?: number;
+  currentPage?: number;
+  pageSizes?: number[];
+  pageInfo?: SimplePagination;
+}>(), {
+  showAddButton: false,
+  addButtonText: '新增',
+  showPagination: true,
+  pageSizes: () => [10, 20, 50, 100],
+  total: 0,
+  pageSize: 10,
+  currentPage: 1
+});
+
+// Emits
+const emit = defineEmits<{
+  add: [];
+  sizeChange: [size: number];
+  currentChange: [current: number];
+}>();
+
+// 默认值处理
+const defaultPageSize = 10;
+const defaultCurrentPage = 1;
+const defaultPageSizes = [10, 20, 50, 100];
+
+// 计算实际使用的分页参数
+const getActualTotal = () => {
+  // 处理简单分页对象
+  if (props.pageInfo && typeof props.pageInfo === 'object') {
+    // 检查是否是简单分页对象
+    if ('total' in props.pageInfo) {
+      return (props.pageInfo as any).total || 0;
+    }
+  }
+  return props.total || 0;
+};
+
+const getActualPageSize = () => {
+  if (props.pageInfo && typeof props.pageInfo === 'object') {
+    if ('pageSize' in props.pageInfo) {
+      return (props.pageInfo as any).pageSize || defaultPageSize;
+    }
+  }
+  return props.pageSize || defaultPageSize;
+};
+
+const getActualCurrentPage = () => {
+  if (props.pageInfo && typeof props.pageInfo === 'object') {
+    if ('currentPage' in props.pageInfo) {
+      return (props.pageInfo as any).currentPage || defaultCurrentPage;
+    }
+  }
+  return props.currentPage || defaultCurrentPage;
+};
+
+// 本地分页状态
+const localPageSize = ref(getActualPageSize());
+const localCurrentPage = ref(getActualCurrentPage());
+
+// 监听props变化，更新本地状态
+watch(
+  [() => props.pageSize, () => props.currentPage, () => props.pageInfo],
+  () => {
+    localPageSize.value = getActualPageSize();
+    localCurrentPage.value = getActualCurrentPage();
+  },
+  { deep: true }
+);
+
+// 分页大小变化
+const handleSizeChange = (size: number) => {
+  localPageSize.value = size;
+  emit('sizeChange', size);
+};
+
+// 当前页码变化
+const handleCurrentChange = (current: number) => {
+  localCurrentPage.value = current;
+  emit('currentChange', current);
+};
+</script>
+
+<style scoped>
+.base-list-container {
+  width: 100%;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-left h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.header-right {
+  display: flex;
+  gap: 10px;
+}
+
+.card-content {
+  padding: 20px 0;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  text-align: center;
+  padding: 0 20px 20px 20px;
+}
+</style>
