@@ -17,18 +17,19 @@ Help with **[trae.cn](https://www.trae.cn/) solo mode**
 ## How to build
 * require **Java JDK 22** or newer
 * test frontend run in **nodejs 22+**
-* *optional* generate your own RSA public key and private for rsa jwt token sign and verify algorithm with [OpenSSL](https://www.openssl.org/)
-```bash
-cd .\src\main\resources\keys
-openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
-openssl rsa -pubout -in private_key.pem -out public_key.pem
-```
 
 ```bash
 git clone https://github.com/Danburen/simple-ship-managerment
 gradlew clean build
 cd .\web-client\
 npm install
+```
+
+* *optional* generate your own RSA public key and private for rsa jwt token sign and verify algorithm with [OpenSSL](https://www.openssl.org/)
+```bash
+cd .\src\main\resources\keys
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
 
 ## How to run in dev
