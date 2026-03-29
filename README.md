@@ -1,6 +1,10 @@
 # simple-ship-managerment
 A simple ship managerment for Software engineering course training in two weeks.
 
+![GitHub Release](https://img.shields.io/github/v/release/Danburen/simple-ship-managermentX?label=Latest%20Release)
+![GitHub License](https://img.shields.io/github/license/danburen/simple-ship-managerment?label=License)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/danburen/simple-ship-managerment/total)
+
 Build with **SpringBoot** + **mysql** + **redis**
 with **tencent cos cloud file storage**.
 
